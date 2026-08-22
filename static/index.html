@@ -317,8 +317,38 @@
       Prices convert to USD using static demo FX rates in <code>app/markets.py</code>
       — swap in a live FX API before trusting this for anything real. Set
       <code>USE_MOCK_DATA=false</code> in <code>.env</code> with your own
-      Amadeus keys to price against live fares instead of simulated ones.
+      SerpApi key to price against live Google Flights fares instead of
+      simulated ones.
     </p>
+
+    <div class="board-header" style="margin-top: 48px;">
+      <h2>Cheapest day to fly</h2>
+      <span class="elapsed" id="date-elapsed"></span>
+    </div>
+    <p class="subtitle" style="margin-bottom: 16px;">
+      Uses the origin/destination above, fanning out one agent per candidate
+      departure date instead of per currency — same concurrency pattern,
+      different axis.
+    </p>
+    <form id="date-scan-form">
+      <div class="field">
+        <label for="scan-currency">Currency</label>
+        <input id="scan-currency" maxlength="3" value="USD" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="scan-start-date">Start date</label>
+        <input id="scan-start-date" type="date" />
+      </div>
+      <div class="field">
+        <label for="scan-days">Days to check</label>
+        <input id="scan-days" type="number" min="1" max="21" value="7" />
+      </div>
+      <div class="field"></div>
+      <div class="button-group">
+        <button id="scan-btn" type="submit">Scan date range</button>
+      </div>
+    </form>
+    <div class="board" id="date-board"></div>
   </div>
 
 <script>
@@ -348,6 +378,13 @@
   const defaultDate = new Date();
   defaultDate.setDate(defaultDate.getDate() + 60);
   dateInput.value = defaultDate.toISOString().slice(0, 10);
+
+  const dateScanForm = document.getElementById("date-scan-form");
+  const scanBtn = document.getElementById("scan-btn");
+  const scanStartDateInput = document.getElementById("scan-start-date");
+  const dateBoard = document.getElementById("date-board");
+  const dateElapsedEl = document.getElementById("date-elapsed");
+  scanStartDateInput.value = defaultDate.toISOString().slice(0, 10);
 
   function resetPanels() {
     planPanel.hidden = true;
@@ -534,6 +571,116 @@
       source.close();
       setButtonsDisabled(false);
       aiAgentBtn.textContent = "Run AI agent";
+    };
+  });
+
+  function renderDatePendingBoard(dates) {
+    dateBoard.innerHTML = "";
+    dates.forEach((date) => {
+      const row = document.createElement("div");
+      row.className = "row";
+      row.id = `date-row-${date}`;
+      row.innerHTML = `
+        <div>
+          <div class="market-name">${date}</div>
+        </div>
+        <div><span class="status pending">Pending</span></div>
+        <div></div>
+        <div class="price">—</div>
+        <div class="latency"></div>
+      `;
+      dateBoard.appendChild(row);
+    });
+  }
+
+  function renderDateResult(result) {
+    const row = document.getElementById(`date-row-${result.date}`);
+    if (!row) return;
+    row.classList.add("done");
+
+    const statusHtml = result.error
+      ? `<span class="status error">Error</span>`
+      : `<span class="status done">Priced</span>`;
+
+    const priceHtml = result.error
+      ? `<span style="color:var(--red); font-size:13px;">${result.error}</span>`
+      : `${result.price.toLocaleString()} ${result.currency}
+         <span class="native">${result.airline ?? ""} · ${result.source}</span>`;
+
+    row.innerHTML = `
+      <div>
+        <div class="market-name">${result.date}</div>
+      </div>
+      <div>${statusHtml}</div>
+      <div></div>
+      <div class="price">${priceHtml}</div>
+      <div class="latency">${result.latency_ms} ms</div>
+    `;
+  }
+
+  function highlightBestDate(results) {
+    const priced = results.filter((r) => !r.error);
+    if (priced.length === 0) return;
+    const best = priced.reduce((a, b) => (a.price < b.price ? a : b));
+    const row = document.getElementById(`date-row-${best.date}`);
+    if (row) {
+      row.classList.add("best");
+      const priceCell = row.querySelector(".price");
+      priceCell.innerHTML += `<span class="best-tag">CHEAPEST DAY</span>`;
+    }
+  }
+
+  dateScanForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const origin = document.getElementById("origin").value.trim().toUpperCase();
+    const destination = document.getElementById("destination").value.trim().toUpperCase();
+    const adults = document.getElementById("adults").value || 1;
+    const currency = document.getElementById("scan-currency").value.trim().toUpperCase() || "USD";
+    const startDate = scanStartDateInput.value;
+    const days = document.getElementById("scan-days").value || 7;
+
+    if (origin.length !== 3 || destination.length !== 3 || !startDate) {
+      alert("Enter a 3-letter origin/destination (above) and a start date.");
+      return;
+    }
+
+    const dates = [];
+    const cursor = new Date(startDate + "T00:00:00");
+    for (let i = 0; i < days; i++) {
+      dates.push(new Date(cursor.getTime() + i * 86400000).toISOString().slice(0, 10));
+    }
+
+    renderDatePendingBoard(dates);
+    scanBtn.disabled = true;
+    scanBtn.textContent = "Scanning…";
+    const startedAt = performance.now();
+    dateElapsedEl.textContent = "";
+
+    const params = new URLSearchParams({
+      origin, destination, start_date: startDate, days, adults, currency,
+    });
+    const source = new EventSource(`/api/dates/scan/stream?${params.toString()}`);
+    const results = [];
+
+    source.onmessage = (event) => {
+      const result = JSON.parse(event.data);
+      results.push(result);
+      renderDateResult(result);
+    };
+
+    source.addEventListener("done", () => {
+      source.close();
+      scanBtn.disabled = false;
+      scanBtn.textContent = "Scan date range";
+      const elapsed = ((performance.now() - startedAt) / 1000).toFixed(1);
+      dateElapsedEl.textContent = `All ${dates.length} dates settled in ${elapsed}s`;
+      highlightBestDate(results);
+    });
+
+    source.onerror = () => {
+      source.close();
+      scanBtn.disabled = false;
+      scanBtn.textContent = "Scan date range";
     };
   });
 

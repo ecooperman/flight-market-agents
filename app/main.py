@@ -1,11 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.agent import run_pricing_agent
 from app.models import CompareRequest
-from app.orchestrator import compare_all_markets, stream_market_agents
+from app.orchestrator import compare_all_markets, scan_dates_stream, stream_market_agents
 
 app = FastAPI(title="Flight Market Agents Demo")
 
@@ -43,6 +43,26 @@ async def agent_compare_stream(origin: str, destination: str, departure_date: st
     itself -- as opposed to the fixed fan-out above."""
     return StreamingResponse(
         run_pricing_agent(origin, destination, departure_date, adults),
+        media_type="text/event-stream",
+    )
+
+
+@app.get("/api/dates/scan/stream")
+async def dates_scan_stream(
+    origin: str,
+    destination: str,
+    start_date: str,
+    days: int = Query(7, ge=1, le=21),
+    adults: int = 1,
+    currency: str = "USD",
+):
+    """Fans out one agent per candidate departure date (start_date ..
+    start_date + days - 1) and streams each result as it lands, so the UI
+    can answer "what's the cheapest day to fly this route" instead of just
+    "what's the price on one specific day". Capped at 21 days -- each day
+    is a real, billed SerpApi call in live mode."""
+    return StreamingResponse(
+        scan_dates_stream(origin, destination, start_date, days, adults, currency),
         media_type="text/event-stream",
     )
 

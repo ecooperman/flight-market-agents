@@ -1,8 +1,10 @@
 # The set of "market agents" this demo spins up concurrently.
 # Each one queries the same route/date but prices it in a different
-# currency via Amadeus's currencyCode parameter. This shows real,
-# legitimate currency-driven pricing differences -- it does NOT spoof
-# the requester's country or location. See README.md for why.
+# currency via SerpApi's Google Flights `currency` parameter. This shows
+# real, legitimate currency-driven pricing differences -- it does NOT spoof
+# the requester's country or location. See README.md for why, and for an
+# open caveat on how much of the difference is genuine currency-of-sale
+# pricing vs. simple FX conversion.
 MARKETS = [
     {"market": "United States", "currency": "USD"},
     {"market": "Japan", "currency": "JPY"},

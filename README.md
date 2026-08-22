@@ -7,21 +7,35 @@ results) more than to be a real product.
 
 ## What this actually does (and doesn't)
 
-Each agent calls the [Amadeus Flight Offers Search API](https://developers.amadeus.com/self-service/category/flights/api-doc/flight-offers-search)
+Each agent calls [SerpApi's Google Flights engine](https://serpapi.com/google-flights-api)
 for the identical origin/destination/date, but requests the price in a
-different currency (`currencyCode=JPY`, `GBP`, `INR`, etc.), then converts
-that back to USD so the numbers are comparable. That's a **real, legitimate
-effect** — currency-of-sale pricing genuinely doesn't track FX 1:1 — but
-it is **not** the "same flight, cheaper if you pretend to search from
-Japan" consumer-personalization effect you see on sites like Google Flights
-or Skyscanner. That effect lives in those sites' front-end revenue
-management and would require automated, high-volume querying against
-sites whose terms of service prohibit exactly that — not something this
-project does or is meant to do.
+different currency (`currency=JPY`, `GBP`, `INR`, etc.), then converts that
+back to USD so the numbers are comparable. Currency-of-sale pricing
+genuinely doesn't track FX 1:1, so real differences do show up here — but
+**how much of that is genuine currency-of-sale pricing vs. SerpApi/Google
+simply applying a spot FX conversion under the hood is an open question we
+haven't verified.** Treat the multi-currency numbers as illustrative, not
+as proof of a specific pricing mechanism, unless you dig into it further.
 
-No proxies, VPNs, or IP/country spoofing are involved anywhere in this
-code. Every "market" here is just a currency parameter on a normal,
-licensed API call.
+This is **not** the "same flight, cheaper if you pretend to search from
+Japan" consumer-personalization effect you see on travel sites — that
+effect lives in front-end revenue management tied to your apparent
+location/browsing history, not a currency query param, and would require
+automated querying against sites whose terms of service prohibit exactly
+that. No proxies, VPNs, or IP/country spoofing are involved anywhere in
+this code.
+
+### Why not Amadeus anymore
+
+This project originally used the Amadeus Flight Offers Search API.
+**Amadeus fully decommissioned its free self-service developer portal on
+July 17, 2026** — existing keys were disabled, new registrations paused a
+month prior. Their Enterprise API is still around but is a sales-contract
+product, not viable for a personal project. See
+[PhocusWire's coverage](https://www.phocuswire.com/amadeus-shut-down-self-service-apis-portal-developers)
+if you're curious. SerpApi's Google Flights engine is the replacement:
+self-service, real live pricing (not cached), a free tier, and a `currency`
+param that preserves the original multi-market comparison concept.
 
 ## Two market-data modes
 
@@ -30,8 +44,8 @@ licensed API call.
   market, so you can run and demo the whole concurrent-agent flow
   instantly with zero setup. Every mocked result is labeled `"source":
   "mock"` in the API response and the UI.
-- **Live mode** — `USE_MOCK_DATA=false` plus real Amadeus credentials.
-  Calls the real API.
+- **Live mode** — `USE_MOCK_DATA=false` plus a real `SERPAPI_KEY`. Calls
+  the real Google Flights engine via SerpApi.
 
 ## Two orchestration modes -- this is the part worth reading
 
@@ -84,20 +98,15 @@ Then open http://127.0.0.1:8050.
 
 ## Going live with real fares
 
-1. Register for free self-service keys at
-   [developers.amadeus.com/register](https://developers.amadeus.com/register).
-2. Put your `client_id` / `client_secret` in `.env` and set
-   `USE_MOCK_DATA=false`.
-3. Heads up: Amadeus's **test** environment (`test.api.amadeus.com`) runs
-   on limited, static cached data — it often won't have offers for
-   whatever route/date you pick, so you'll see `"error": "No offers
-   returned for this market"` on some or all agents. Amadeus's own
-   self-service tier auto-upgrades to the **production** base URL
-   (`api.amadeus.com`) with a real free monthly quota (2,000 free
-   Flight Offers Search calls/month at last check) — switch
-   `AMADEUS_BASE_URL` to that once your app is approved for it, and use
-   near-term real dates on well-traveled routes for the best chance of
-   live results.
+1. Sign up for free at [serpapi.com](https://serpapi.com) — no card
+   required for the free 250-searches/month plan. Grab your key from the
+   dashboard.
+2. Put it in `.env` as `SERPAPI_KEY` and set `USE_MOCK_DATA=false`.
+3. That's it — no test/production split, no approval wait, no OAuth
+   dance. Every search is billed against your monthly quota (each market
+   in a "Run concurrent agents" pass, or each date in a "Scan date range"
+   pass, is one search), so mind the quota if you're iterating a lot
+   during dev. $25/mo buys 1,000 searches if you outgrow the free tier.
 
 ## Where the concurrency actually shows up
 
@@ -117,6 +126,17 @@ Then open http://127.0.0.1:8050.
 `app/markets.py` has static, approximate FX rates for demo purposes. Swap
 in a live FX API (e.g. `open.er-api.com`, `exchangerate.host`) before
 relying on these numbers for anything real.
+
+## Cheapest day to fly
+
+"Scan date range" (`GET /api/dates/scan/stream`, `scan_dates_stream()` in
+`app/orchestrator.py`) is the same fan-out-and-stream concurrency pattern
+as the market comparison, just varying the departure date instead of the
+currency: one agent per day in a range (up to 21), fired concurrently,
+streamed back as they land, cheapest one highlighted. It's a single
+currency per scan (no FX math needed) and works in both mock and live
+mode. This is the actual "when should I book" feature — the AI agent mode
+(`app/agent.py`) doesn't use it yet; it's still market-only.
 
 ## Deploy
 
