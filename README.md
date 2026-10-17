@@ -69,8 +69,11 @@ The UI has two buttons, and they demonstrate genuinely different things:
   them. That's the actual routing/tool-use decision the job postings in
   this space are asking about.
 
-This mode requires a real `ANTHROPIC_API_KEY` in `.env` (get one at
-[console.anthropic.com](https://console.anthropic.com)) and makes real,
+This mode requires a real `ANTHROPIC_API_KEY` - in `.env` locally (get one
+at [console.anthropic.com](https://console.anthropic.com)); on the droplet
+it comes from the shared secrets file every app reads
+(`/etc/personal-apps/shared.env`, see `DEPLOYMENT.md`), which wins over
+`.env` since a real environment variable takes priority. It makes real,
 billed calls to the Claude API -- small cost per run, but not free like
 mock market data. `AGENT_MODEL` defaults to `claude-sonnet-5`; swap it for
 whatever model you want to demo against.
