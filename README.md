@@ -214,3 +214,8 @@ alone; ordinary deploys (`git pull` + `pip install`) don't touch it.
 8. Push to `main` — CI takes it from here on future updates. Since this
    repo has no `.git` yet, that's `git init`, add the GitHub remote, then
    push, same as you did for `gifts`.
+
+## To do
+
+The running to-do list for all projects is `../TODO.md` (in the personal-projects
+folder, one level up; not in git).
