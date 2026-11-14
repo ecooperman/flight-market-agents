@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Query, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -12,12 +11,8 @@ from app.orchestrator import compare_all_markets, scan_dates_stream, stream_mark
 app = FastAPI(title="Flight Market Agents Demo")
 templates = Jinja2Templates(directory="templates")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# No CORS: the page is served by this same app, so its own calls are same-origin, and no other
+# site has any business calling these endpoints (live mode makes billed SerpApi / Claude calls).
 
 
 @app.post("/api/compare")
