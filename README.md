@@ -86,6 +86,14 @@ the non-agent mode), feed the results back as `tool_result` blocks, and
 repeat until the model stops calling tools and just answers. Capped at
 `MAX_AGENT_STEPS = 4` so a confused run can't loop forever.
 
+## The page
+
+`templates/index.html` is a Jinja template (so the shared-assets URL is baked in, see `app/config.py`'s
+`SHARED_ASSETS_BASE`; `APP_ENV=production` on the droplet), with its script and the little CSS that is specific to
+it in `static/` (`app.js`, `style.css`, `nav.js`). It uses the shared look from `shared-assets`: dark / light /
+match-device theme, the sidebar, and an icon on every button. Rows are built with `textContent`, never
+`innerHTML`, since names, airlines and error text come from the API. `jinja2` is a requirement now.
+
 ## Setup
 
 ```bash

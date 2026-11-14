@@ -1,13 +1,16 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from app.agent import run_pricing_agent
+from app.config import SHARED_ASSETS_BASE
 from app.models import CompareRequest
 from app.orchestrator import compare_all_markets, scan_dates_stream, stream_market_agents
 
 app = FastAPI(title="Flight Market Agents Demo")
+templates = Jinja2Templates(directory="templates")
 
 app.add_middleware(
     CORSMiddleware,
@@ -67,6 +70,14 @@ async def dates_scan_stream(
     )
 
 
-# Serves static/index.html and friends at the site root. Mounted last so
+# The page is a template so the shared-assets URL is baked in server-side (see
+# config.SHARED_ASSETS_BASE). Registered before the static mount below, which serves its
+# app.js and style.css.
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request):
+    return templates.TemplateResponse(request, "index.html", {"shared_assets_base": SHARED_ASSETS_BASE})
+
+
+# Serves static/app.js and style.css at the site root. Mounted last so
 # it doesn't shadow the /api routes above.
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

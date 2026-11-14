@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en" data-ui="v2">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Market Agents - Flight Fare Comparison</title>
+  <link rel="stylesheet" href="{{ shared_assets_base }}/theme.css" />
+  <script src="{{ shared_assets_base }}/theme-init.js"></script>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Same route, six markets, priced at once.</h1>
+    <p class="subtitle">
+      Each row below is an independent agent that prices this exact itinerary in a different market's currency, all
+      launched in parallel. Results land in whatever order they finish - that's the concurrency, not a script.
+    </p>
+  </header>
+
+  <div id="app-nav-mount"></div>
+
+  <main>
+    <div id="page-message" class="page-message hidden"></div>
+
+    <form id="search-form" class="add-card search-form">
+      <div class="field">
+        <label for="origin">Origin</label>
+        <input id="origin" type="text" maxlength="3" value="ORD" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="destination">Destination</label>
+        <input id="destination" type="text" maxlength="3" value="NRT" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="date">Departure date</label>
+        <input id="date" type="date" />
+      </div>
+      <div class="field">
+        <label for="adults">Adults</label>
+        <input id="adults" type="number" min="1" max="9" value="1" />
+      </div>
+      <div class="button-group">
+        <button id="launch-btn" type="submit" class="save-btn" data-btn-icon="zap">Run concurrent agents</button>
+        <button id="ai-agent-btn" type="button" class="secondary-btn" data-btn-icon="compass">Run AI agent</button>
+      </div>
+    </form>
+
+    <div class="mode-note" id="mode-note"></div>
+
+    <div class="panel" id="plan-panel" hidden>
+      <div class="panel-label">Agent's plan</div>
+      <div class="panel-body" id="plan-body"></div>
+    </div>
+
+    <div class="list-header">
+      <h2>Market agents</h2>
+      <span class="elapsed" id="elapsed"></span>
+    </div>
+    <div class="board" id="board"></div>
+
+    <div class="panel panel-rec" id="rec-panel" hidden>
+      <div class="panel-label">Agent's recommendation</div>
+      <div class="panel-body" id="rec-body"></div>
+    </div>
+
+    <p class="footnote">
+      Prices convert to USD using static demo FX rates in <code>app/markets.py</code> - swap in a live FX API before
+      trusting this for anything real. Set <code>USE_MOCK_DATA=false</code> in <code>.env</code> with your own SerpApi
+      key to price against live Google Flights fares instead of simulated ones.
+    </p>
+
+    <div class="list-header section-gap">
+      <h2>Cheapest day to fly</h2>
+      <span class="elapsed" id="date-elapsed"></span>
+    </div>
+    <p class="hint">
+      Uses the origin/destination above, fanning out one agent per candidate departure date instead of per currency -
+      same concurrency pattern, different axis.
+    </p>
+    <form id="date-scan-form" class="add-card search-form search-form-3">
+      <div class="field">
+        <label for="scan-currency">Currency</label>
+        <input id="scan-currency" type="text" maxlength="3" value="USD" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="scan-start-date">Start date</label>
+        <input id="scan-start-date" type="date" />
+      </div>
+      <div class="field">
+        <label for="scan-days">Days to check</label>
+        <input id="scan-days" type="number" min="1" max="21" value="7" />
+      </div>
+      <div class="button-group">
+        <button id="scan-btn" type="submit" class="save-btn" data-btn-icon="calendar">Scan date range</button>
+      </div>
+    </form>
+    <div class="board" id="date-board"></div>
+  </main>
+
+  <script src="{{ shared_assets_base }}/theme.js"></script>
+  <script src="{{ shared_assets_base }}/icons.js"></script>
+  <script src="/nav.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
